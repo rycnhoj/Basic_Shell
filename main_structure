@@ -1,0 +1,31 @@
+while(not exit){
+	entire input -> char* cmd
+	break input into tokens by spaces
+	while(not end of token_array)
+		create temp Struct
+		put first token into Struct.cmd
+		while(not "|" or NULL)
+			if(token == <)
+				Struct.redirect = 0
+			else if(token == >)
+				Struct.redirect = 1
+			else if(token == &)
+				Struct.bg = true
+			else
+				copy token into Struct.args
+		push temp Struct into array of structs
+
+	// EXECUTION LOOP
+	for 0 to last_Struct in CommandArray
+		if (Struct.cmd == "built_in")
+			built_in(Struct);
+		else if (Struct.cmd == "other_built_in")
+			other_built_in(Struct)
+		else if (Struct.cmd == "last_built_in")
+			last_built_in(Struct)
+		...
+		else
+			execute_command(Struct)
+}
+
+	

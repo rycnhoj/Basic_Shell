@@ -52,19 +52,7 @@ void executeCommand(cmdStruct c){
 	}
 	// CHILD
 	else if (p == 0) {
-		// REDIRECTION
-		if(c.redirect != -1){
-			int rdFD = open(fileno(c.rdfile));
-			if(c.redirect == 0)
-				close(STDIN_FILENO);
-			else if(c.redirect == 1)
-				close(STDOUT_FILENO);
-			dup(rdFD);
-			close(rdFD);
-		}
-		char* cmdBuff = buildCmdFromStruct(c);
-		execv(c.cmd, cmdBuff);
-		exit(1);
+		executeHelper(c);
 	}
 	// PARENT
 	else {
@@ -73,3 +61,55 @@ void executeCommand(cmdStruct c){
 	}
 }
 
+void executeHelper(cmdStruct c){
+	if(c.redirect != -1){
+		int rdFD = open(fileno(c.rdFile));
+		if(c.redirect == 0)
+			close(STDIN_FILENO);
+		else if (c.redirect == 1)
+			close(STDOUT_FILENO);
+		dup(rdFD);
+		close(rdFD);
+	}
+	char* cmdBuff = buildCmdFromStruct(c);
+	execv(c.cmd, cmdBuff);
+}
+
+void forkChild(int inFD, int outFD, cmdStruct c){
+	pid_t pid = fork();
+	if (pid == 0){
+		if(in != 0){
+			close(STDIN_FILENO);
+			dup(in);
+			close(in);
+		}
+		if(out != 1){
+			close(STDOUT_FILENO);
+			dup(out);
+			close(out);
+		}
+		return executeHelper(c);
+	}
+	return pid;
+}
+
+void pipedProcess(int numCmds, cmdStruct* cStrcts){
+	int in = 0;
+	int fd[2];
+	pid_t pid;
+
+	int i;
+	for(i = 0; i < numCmds - 1; ++i){
+		pipe(fd);
+		forkChild(in, fd[1], cStrcts[i]);
+		close(fd[1]);
+		in = fd[0];
+	}
+
+	if (in != 0){
+		close(STDIN_FILENO);
+		dup(in);
+		close(in);
+	}
+	executeHelper(cStructs[i]);
+}

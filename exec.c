@@ -35,10 +35,16 @@ void processCommand(cmdStruct c){
 		executeCommand(c);
 }
 
-char* buildCmdFromStruct(cmdStruct c){
-	char* cmd = (char*) malloc (sizeof(c.cmd)+sizeof(c.args)+1);
-	strcat(cmd, c.cmd);
-	strcat(cmd, c.args);
+char** buildCmdFromStruct(cmdStruct c){
+	char* cmd[sizeof(c.args)+2];
+	strcpy(cmd[i], c.cmd);
+
+	int i;
+	for (i = 1; i < sizeof(c.args) + 1; i++) {
+		strcpy(cmd[i], c.args[i]);
+	}
+	cmd[i] = NULL;
+
 	return cmd;
 }
 
@@ -71,7 +77,7 @@ void executeHelper(cmdStruct c){
 		dup(rdFD);
 		close(rdFD);
 	}
-	char* cmdBuff = buildCmdFromStruct(c);
+	char** cmdBuff = buildCmdFromStruct(c);
 	execv(c.cmd, cmdBuff);
 }
 
@@ -80,20 +86,19 @@ void forkChild(int inFD, int outFD, cmdStruct c){
 	if (pid == 0){
 		if(in != 0){
 			close(STDIN_FILENO);
-			dup(in);
-			close(in);
+			dup(inFD);
+			close(inFD);
 		}
 		if(out != 1){
 			close(STDOUT_FILENO);
-			dup(out);
-			close(out);
+			dup(outFD);
+			close(outFD);
 		}
-		return executeHelper(c);
+		executeHelper(c);
 	}
-	return pid;
 }
 
-void pipedProcess(int numCmds, cmdStruct* cStrcts){
+void executePipe(int numCmds, cmdStruct* cStrcts){
 	int in = 0;
 	int fd[2];
 	pid_t pid;
@@ -105,7 +110,6 @@ void pipedProcess(int numCmds, cmdStruct* cStrcts){
 		close(fd[1]);
 		in = fd[0];
 	}
-
 	if (in != 0){
 		close(STDIN_FILENO);
 		dup(in);

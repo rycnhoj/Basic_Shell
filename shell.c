@@ -13,6 +13,7 @@ typedef struct {
 	char * cmd;
 	char * args[MAX];
 	char * rdFile;
+
 	int rd;
 	int bg;
 } cmdStruct;
@@ -57,7 +58,7 @@ int changeEnvs(char * tokenArray[], int arraySize) {
 				tokenArray[i] = getenv(env);
 			} else { // Signal an error if it does not exist
 				printf("%s: Undefined Variable.\n", env);
-				return 1;
+				return -1;
 	  		}
 	  	}
 		i++;
@@ -79,7 +80,6 @@ cmdStruct* transformStruct(char* cmdToken){
 		if(strcmp(token, "<") == 0 || strcmp(token, ">") == 0){
 			if(strcmp(token, "<") == 0)
 				temp.rd = 0;
-
 			else if(strcmp(token, ">") == 0)
 				temp.rd = 1;
 			token = strtok_r(rest, ' ', &rest);
@@ -90,6 +90,8 @@ cmdStruct* transformStruct(char* cmdToken){
 			temp.args[argIndex] = (char*) malloc(strlen(token));
 			strcpy(temp.args[argIndex++], token);
 		}
+		if (changeEnvs(temp.args, argIndex) == -1)
+			return NULL;
 	}
 	return temp;
 }
@@ -103,25 +105,32 @@ int main() {
 		char* rest = cmdline;
 		char* tokenArray[MAX];
 		cmdStruct cmdStructs[MAX];
-		int p = 0;
 		int cmdStructIndex = 0;
-		int argIndex = 0;
 
 		//Transform input
 		/////////////////////////////////////////////////
 
 		if(strchr(cmdline, '|') == NULL){
-			copyStruct(cmdStructs[0], transformStruct(cmdline));
+			cmdStruct* newStruct = transformStruct(cmdline);
+			if(newStruct == NULL){
+				continue;
+			}
+			copyStruct(cmdStructs[0], newStruct);
 		}
 		else {
 			while(token = strtok_r(rest, '|', &rest)){
-				copyStruct(cmdStructs[cmdStructIndex++], transformStruct(cmdline));
+				cmdStruct* newStruct = transformStruct(cmdline);
+				if(newStruct == NULL)
+					continue;
+				copyStruct(cmdStructs[cmdStructIndex++], newStruct);
 			}
+			if(newStruct == NULL)
+				continue;
+			cmdStruct* newStruct = transformStruct(rest);
+			if(newStruct == NULL){
+				continue;
 			copyStruct(cmdStructs[cmdStructIndex], transformStruct(rest));
 		}
-
-		// Checks all the enviromental variables
-		// if(changeEnvs(tokenArray, argIndex) == 0) {
 
 			//Match against patterns
 			/////////////////////////////////////////////////

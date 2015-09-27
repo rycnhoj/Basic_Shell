@@ -1,0 +1,28 @@
+char * getCmdPath (char * cmd) {
+	
+	char * getAllPaths = getenv("PATH");
+	char * path;
+
+	char * tempPath;	
+
+	while(path = strtok_r(getAllPaths, ":", &getAllPaths)) {
+	
+		if((tempPath = malloc(strlen(path)+strlen(cmd)+2)) != NULL){
+			tempPath[0] = '\0';   // ensures the memory is an empty string
+			strcat(tempPath,path);
+			strcat(tempPath,"/");
+			strcat(tempPath,cmd);
+		} else {
+			printf("ERROR WITH MALLOC!\n");
+		}
+
+		struct stat FileAttrib;
+ 
+		if( stat( tempPath, &FileAttrib ) == 0 ){
+			return tempPath;
+		} else {
+			printf("NOT FOUND\n");
+			return NULL;
+		}
+	}
+}

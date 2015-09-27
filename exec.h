@@ -21,7 +21,7 @@
 void executeCommand(cmdStruct); // Executes a single command
 void executePipe(int, cmdStruct*); // Executes n piped commands
 static void executeHelper(cmdStruct); // Main execution function
-void copyStruct(cmdStruct, cmdStruct); // Copies to dest from src
+void copyStruct(cmdStruct*, cmdStruct*); // Copies to dest from src
 char** buildCmdFromStruct(cmdStruct); // Builds a cstring array from struct
 static void forkChild(int, int, cmdStruct); // Forks a new child and pipes
 
@@ -78,22 +78,23 @@ void executeHelper(cmdStruct c){
 	execv(c.cmd, cmdBuff);
 }
 
-void copyStruct(cmdStruct dest, cmdStruct src){
-	strcpy(dest.cmd, src.cmd);
+void copyStruct(cmdStruct* dest, cmdStruct* src){
+	strcpy(&dest.cmd, &src.cmd);
 	int i;
-	int l = sizeof(src.args)/sizeof(char*);
+	int l = sizeof(&src.args)/sizeof(char*);
 	for(i = 0; i < l; i++) {
-		strcpy(dest.args[i], src.args[i]);
+		strcpy(&dest.args[i], &src.args[i]);
 	}
-	if(strcmp(src.rdFile, "") != 0){
-		strcpy(dest.rdFile, src.rdFile);
+	if(strcmp(&src.rdFile, "") != 0){
+		strcpy(&dest.rdFile, &src.rdFile);
 	}
-	dest.rd = src.rd;
-	dest.bg = src.bg;
+	&dest.rd = &src.rd;
+	&dest.bg = &src.bg;
 }
 
 char** buildCmdFromStruct(cmdStruct c){
 	char* cmd[sizeof(c.args)+2];
+	cmd[i] = (char*) malloc (strlen(c.cmd));
 	strcpy(cmd[i], c.cmd);
 
 	int i;

@@ -103,7 +103,6 @@ int main() {
 	char* cmdline; // The Whole Command Line
 
 	while ((cmdline = getCmd()) != NULL) {
-		puts("Starting while loop");
 		char* token;
 		char* rest = cmdline;
 		char* tokenArray[MAX];
@@ -138,17 +137,11 @@ int main() {
 			exit(1);
 		}
 
-		if(cmdStructIndex == 0){
+		if(cmdStructIndex == 0)
 			executeCommand(cmdStructs[0]);
-		}
-		else{
+		else
 			executePipe(cmdStructIndex, cmdStructs);
-		}
-
-		puts("Cleaning commands");
 		cleanCommands(cmdStructs, cmdStructIndex);
-		puts("Done cleaning commands");
-		puts("Done while loop");
 	}
 
 	return 0;

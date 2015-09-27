@@ -87,9 +87,9 @@ void executePipe(int numCmds, cmdStruct* cStructs){
 	executeHelper(cStructs[i]);
 }
 
-
 void executeHelper(cmdStruct c){
-	if(!((c.rd == 1) || (c.rd == 2))){
+	if((c.rd == 1)||(c.rd == 2)){
+		puts("Redirecting");
 		int rdFD = open(c.rdFile);
 		if(c.rd == 1)
 			close(STDIN_FILENO);
@@ -98,8 +98,13 @@ void executeHelper(cmdStruct c){
 		dup(rdFD);
 		close(rdFD);
 	}
-	char** cmdBuff = buildCmdFromStruct(c);
-	execv(c.cmd, cmdBuff);
+	puts("1");
+	//char** cmdBuff = buildCmdFromStruct(c);
+	puts("2");
+	char* cmd[4] = {"/bin/ls", "-l", "-a", NULL};
+	puts("Executing");
+	execv("/bin/ls", cmd);
+	puts("Done Executing");
 }
 
 
@@ -130,7 +135,6 @@ char** buildCmdFromStruct(cmdStruct c){
 	char** cmdPtr;
 	cmd[0] = (char*) malloc (strlen(c.cmd));
 	strcpy(cmd[0], c.cmd);
-
 	for (i = 1; i < sizeof(c.args) + 1; i++) {
 		strcpy(cmd[i], c.args[i]);
 	}

@@ -80,13 +80,20 @@ void executeHelper(cmdStruct c){
 }
 
 void copyStruct(cmdStruct* dest, cmdStruct* src){
+	free(dest->cmd);
+	dest->cmd = (char*) malloc (sizeof(src->cmd));
 	strcpy(dest->cmd, src->cmd);
-	int i;
-	int l = sizeof(src->args)/sizeof(char*);
-	for(i = 0; i < l; i++) {
+	int i = 0;
+	while(src->args[i] != NULL){
+		printf("%s\n", src->args[i]);
+		free(dest->args[i]);
+		dest->args[i] = (char*) malloc (sizeof(src->args[i]));
 		strcpy(dest->args[i], src->args[i]);
+		i++;
 	}
 	if(strcmp(src->rdFile, "") != 0){
+		free(dest->rdFile);
+		dest->rdFile = (char*) malloc (sizeof(src->rdFile));
 		strcpy(dest->rdFile, src->rdFile);
 	}
 	dest->rd = src->rd;

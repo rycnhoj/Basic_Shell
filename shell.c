@@ -49,7 +49,6 @@ int changeEnvs(char * tokenArray[], int arraySize) {
 	  		}
 	  	}
 	}
-	puts("hi");
 	return 0;
 }
 
@@ -99,9 +98,10 @@ int main() {
 
 		if(strchr(cmdline, '|') == NULL){
 			cmdStruct* newStruct = transformStruct(cmdline);
+			cmdStruct* firstStruct = &cmdStructs[0];
 			if(newStruct == NULL)
 				continue;
-			copyStruct(cmdStructs, newStruct);
+			copyStruct(firstStruct, newStruct);
 		}
 		else {
 			cmdStruct* newStruct;

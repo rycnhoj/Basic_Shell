@@ -9,8 +9,15 @@
 
 #define MAX 256
 
-static char* getCmd() {
+typedef struct {
+	char * cmd;
+	char * args[MAX];
+	char * rdFile;
+	int rd;
+	int bg;
+} cmdStruct;
 
+static char* getCmd() {
 	static char buf[MAX];
 
 	// Print Prompt
@@ -42,7 +49,7 @@ int changeEnvs(char * tokenArray[], int arraySize) {
 		if(tokenArray[i][0] == '$') {
 
 			char* env;
-			env = (char*) malloc(strlen(tokenArray[i]) - 1); 
+			env = (char*) malloc(strlen(tokenArray[i]) - 1);
 
 			strncpy(env, tokenArray[i]+1, strlen(tokenArray[i])); // Remove '$'
 
@@ -58,80 +65,59 @@ int changeEnvs(char * tokenArray[], int arraySize) {
 	return 0;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - -
+cmdStruct* transformStruct(char* cmdToken){
+	cmdStruct temp;
+	char* rest = cmdToken;
+	char* token;
+	int argIndex = 0;
 
-//Execute command
-//Print results
+	token = strtok_r(rest, ' ', &rest);
+	temp.cmd = (char*) malloc (strlen(token));
+	strcpy(temp.cmd, token);
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - -
+	while(token = strtok_r(rest, ' ', &rest)){
+		if(strcmp(token, "<") == 0 || strcmp(token, ">") == 0){
+			if(strcmp(token, "<") == 0)
+				temp.rd = 0;
 
-typedef struct {
-	char * cmd;
-	char * args[MAX];
-	char * rdFile;
-
-	int rd;
-	int bg;
-
-} cmdStruct;
+			else if(strcmp(token, ">") == 0)
+				temp.rd = 1;
+			token = strtok_r(rest, ' ', &rest);
+			temp.rdFile = (char*) malloc (strlen(token));
+			strcpy(temp.rdFile, token);
+		}
+		else {
+			temp.args[argIndex] = (char*) malloc(strlen(token));
+			strcpy(temp.args[argIndex++], token);
+		}
+	}
+	return temp;
+}
 
 int main() {
 
 	char* cmdline; // The Whole Command Line
 
 	while ((cmdline = getcmd()) != NULL) {
-
-		char* token; 
+		char* token;
 		char* rest = cmdline;
-
 		char* tokenArray[MAX];
-
 		cmdStruct cmdStructs[MAX];
-		int argIndex = -1;
+		int p = 0;
+		int cmdStructIndex = 0;
+		int argIndex = 0;
 
 		//Transform input
 		/////////////////////////////////////////////////
 
-		// Load all the command tokens into tokenArray array
-		while(token = strtok_r(rest, " ", &rest)) {
-			tokenArray[++argIndex] = token;
+		if(strchr(cmdline, '|') == NULL){
+			copyStruct(cmdStructs[0], transformStruct(cmdline));
 		}
-
-		// while(not end of token_array)
-		// create temp Struct
-		// put first token into Struct.cmd
-		// while(not "|" or NULL)
-		// 	if(token == <)
-		// 		Struct.redirect = 0
-		// 	else if(token == >)
-		// 		Struct.redirect = 1
-		// 	else if(token == &)
-		// 		Struct.bg = true
-		// 	else
-		// 		copy token into Struct.args
-		// push temp Struct into array of structs
-
-		int p = 0;
-		int cmdStructIndex = 0;
-
-		cmdStruct * temp;
-
-		while(tokenArray[p] != NULL) {
-			temp = cmdStructs[cmdStructIndex++];
-			temp.cmd = tokenArray[p]
-
-			while(tokenArray[p] != NULL || tokenArray[p] != '|'){
-				if (strcmp(tokenArray[p], "<") == 0) {
-					temp.rd = 0;
-				}
-				else if (strcmp(tokenArray[p], "<") == 0) {
-
-				}
-				else {
-
-				}
+		else {
+			while(token = strtok_r(rest, '|', &rest)){
+				copyStruct(cmdStructs[cmdStructIndex++], transformStruct(cmdline));
 			}
-			p++;
+			copyStruct(cmdStructs[cmdStructIndex], transformStruct(rest));
 		}
 
 		// Checks all the enviromental variables

@@ -6,17 +6,9 @@
 #include <errno.h>
 #include "exec.h"
 #include "path.h"
+#include "define.h"
 
 #define MAX 256
-
-typedef struct {
-	char * cmd;
-	char * args[MAX];
-	char * rdFile;
-
-	int rd;
-	int bg;
-} cmdStruct;
 
 static char* getCmd() {
 	static char buf[MAX];
@@ -44,45 +36,41 @@ static char* getCmd() {
 }
 
 int changeEnvs(char * tokenArray[], int arraySize) {
-	int i = 0;
-
-	while(i < arraySize + 1) {
-		if(tokenArray[i][0] == '$') {
-
-			char* env;
-			env = (char*) malloc(strlen(tokenArray[i]) - 1);
-
-			strncpy(env, tokenArray[i]+1, strlen(tokenArray[i])); // Remove '$'
-
+	int i;
+	for (i = 0; i < arraySize; i++){
+		char* token = tokenArray[i];
+		if(token[0] == '$') {
+			char* env = token + 1;
 			if (getenv(env) != NULL) { // Replace the value if it exists
 				tokenArray[i] = getenv(env);
 			} else { // Signal an error if it does not exist
-				printf("%s: Undefined Variable.\n", env);
+				printf("%s: Undefined variable.\n", env);
 				return -1;
 	  		}
 	  	}
-		i++;
 	}
+	puts("hi");
 	return 0;
 }
 
 cmdStruct* transformStruct(char* cmdToken){
 	cmdStruct temp;
+	cmdStruct* tempPtr = &temp;
 	char* rest = cmdToken;
 	char* token;
 	int argIndex = 0;
 
-	token = strtok_r(rest, ' ', &rest);
+	token = strtok_r(rest, " ", &rest);
 	temp.cmd = (char*) malloc (strlen(token));
 	strcpy(temp.cmd, token);
 
-	while(token = strtok_r(rest, ' ', &rest)){
+	while((token = strtok_r(rest, " ", &rest)) != NULL){
 		if(strcmp(token, "<") == 0 || strcmp(token, ">") == 0){
 			if(strcmp(token, "<") == 0)
 				temp.rd = 0;
 			else if(strcmp(token, ">") == 0)
 				temp.rd = 1;
-			token = strtok_r(rest, ' ', &rest);
+			token = strtok_r(rest, " ", &rest);
 			temp.rdFile = (char*) malloc (strlen(token));
 			strcpy(temp.rdFile, token);
 		}
@@ -93,14 +81,13 @@ cmdStruct* transformStruct(char* cmdToken){
 		if (changeEnvs(temp.args, argIndex) == -1)
 			return NULL;
 	}
-	return temp;
+	return tempPtr;
 }
 
 int main() {
-
 	char* cmdline; // The Whole Command Line
 
-	while ((cmdline = getcmd()) != NULL) {
+	while ((cmdline = getCmd()) != NULL) {
 		char* token;
 		char* rest = cmdline;
 		char* tokenArray[MAX];
@@ -112,24 +99,24 @@ int main() {
 
 		if(strchr(cmdline, '|') == NULL){
 			cmdStruct* newStruct = transformStruct(cmdline);
-			if(newStruct == NULL){
+			if(newStruct == NULL)
 				continue;
-			}
-			copyStruct(cmdStructs[0], newStruct);
+			copyStruct(cmdStructs, newStruct);
 		}
 		else {
-			while(token = strtok_r(rest, '|', &rest)){
-				cmdStruct* newStruct = transformStruct(cmdline);
+			cmdStruct* newStruct;
+			while(token = strtok_r(rest, "|", &rest)){
+				newStruct = transformStruct(token);
 				if(newStruct == NULL)
 					continue;
-				copyStruct(cmdStructs[cmdStructIndex++], newStruct);
+				copyStruct(cmdStructs + cmdStructIndex++, newStruct);
 			}
 			if(newStruct == NULL)
 				continue;
-			cmdStruct* newStruct = transformStruct(rest);
-			if(newStruct == NULL){
+			newStruct = transformStruct(rest);
+			if(newStruct == NULL)
 				continue;
-			copyStruct(cmdStructs[cmdStructIndex], transformStruct(rest));
+			copyStruct(cmdStructs + cmdStructIndex, transformStruct(rest));
 		}
 
 			//Match against patterns

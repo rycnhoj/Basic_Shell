@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include "define.h"
 
 void executeCommand(cmdStruct); // Executes a single command
 void executePipe(int, cmdStruct*); // Executes n piped commands
@@ -44,7 +45,7 @@ void executeCommand(cmdStruct c){
 	}
 }
 
-void executePipe(int numCmds, cmdStruct* cStrcts){
+void executePipe(int numCmds, cmdStruct* cStructs){
 	int in = 0;
 	int fd[2];
 	pid_t pid;
@@ -52,7 +53,7 @@ void executePipe(int numCmds, cmdStruct* cStrcts){
 	int i;
 	for(i = 0; i < numCmds - 1; ++i){
 		pipe(fd);
-		forkChild(in, fd[1], cStrcts[i]);
+		forkChild(in, fd[1], cStructs[i]);
 		close(fd[1]);
 		in = fd[0];
 	}
@@ -65,11 +66,11 @@ void executePipe(int numCmds, cmdStruct* cStrcts){
 }
 
 void executeHelper(cmdStruct c){
-	if(c.redirect != -1){
-		int rdFD = open(fileno(c.rdFile));
-		if(c.redirect == 0)
+	if(c.rd != -1){
+		int rdFD = open(c.rdFile);
+		if(c.rd == 0)
 			close(STDIN_FILENO);
-		else if (c.redirect == 1)
+		else if (c.rd == 1)
 			close(STDOUT_FILENO);
 		dup(rdFD);
 		close(rdFD);
@@ -79,42 +80,43 @@ void executeHelper(cmdStruct c){
 }
 
 void copyStruct(cmdStruct* dest, cmdStruct* src){
-	strcpy(&dest.cmd, &src.cmd);
+	strcpy(dest->cmd, src->cmd);
 	int i;
-	int l = sizeof(&src.args)/sizeof(char*);
+	int l = sizeof(src->args)/sizeof(char*);
 	for(i = 0; i < l; i++) {
-		strcpy(&dest.args[i], &src.args[i]);
+		strcpy(dest->args[i], src->args[i]);
 	}
-	if(strcmp(&src.rdFile, "") != 0){
-		strcpy(&dest.rdFile, &src.rdFile);
+	if(strcmp(src->rdFile, "") != 0){
+		strcpy(dest->rdFile, src->rdFile);
 	}
-	&dest.rd = &src.rd;
-	&dest.bg = &src.bg;
+	dest->rd = src->rd;
+	dest->bg = src->bg;
 }
 
 char** buildCmdFromStruct(cmdStruct c){
-	char* cmd[sizeof(c.args)+2];
-	cmd[i] = (char*) malloc (strlen(c.cmd));
-	strcpy(cmd[i], c.cmd);
-
 	int i;
+	char* cmd[sizeof(c.args)+2];
+	char** cmdPtr;
+	cmd[0] = (char*) malloc (strlen(c.cmd));
+	strcpy(cmd[0], c.cmd);
+
 	for (i = 1; i < sizeof(c.args) + 1; i++) {
 		strcpy(cmd[i], c.args[i]);
 	}
 	cmd[i] = NULL;
 
-	return cmd;
+	return cmdPtr;
 }
 
 void forkChild(int inFD, int outFD, cmdStruct c){
 	pid_t pid = fork();
 	if (pid == 0){
-		if(in != 0){
+		if(inFD != 0){
 			close(STDIN_FILENO);
 			dup(inFD);
 			close(inFD);
 		}
-		if(out != 1){
+		if(outFD != 1){
 			close(STDOUT_FILENO);
 			dup(outFD);
 			close(outFD);

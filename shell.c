@@ -11,7 +11,7 @@
 #define MAX 256
 
 static char* getCmd() {
-	static char buf[MAX];
+	static char buf[1024];
 
 	// Print Prompt
 	/////////////////////////////////////////////////////
@@ -66,9 +66,9 @@ cmdStruct* transformStruct(char* cmdToken){
 	while((token = strtok_r(rest, " ", &rest)) != NULL){
 		if(strcmp(token, "<") == 0 || strcmp(token, ">") == 0){
 			if(strcmp(token, "<") == 0)
-				temp.rd = 0;
-			else if(strcmp(token, ">") == 0)
 				temp.rd = 1;
+			else if(strcmp(token, ">") == 0)
+				temp.rd = 2;
 			token = strtok_r(rest, " ", &rest);
 			temp.rdFile = (char*) malloc (strlen(token));
 			strcpy(temp.rdFile, token);
@@ -83,18 +83,32 @@ cmdStruct* transformStruct(char* cmdToken){
 	return tempPtr;
 }
 
+void cleanCommands(cmdStruct* cStruct, int cIndex){
+	int i;
+	int j;
+	for (i = 0; i < cIndex; i++){
+		j = 0;
+		free(cStruct[i].cmd);
+		while(cStruct[i].args[j] != NULL){
+			free(cStruct[i].args[j]);
+			j++;
+		}
+		free(cStruct[i].rdFile);
+		cStruct[i].rd = -1;
+		cStruct[i].bg = -1;
+	}
+}
+
 int main() {
 	char* cmdline; // The Whole Command Line
 
 	while ((cmdline = getCmd()) != NULL) {
+		puts("Starting while loop");
 		char* token;
 		char* rest = cmdline;
 		char* tokenArray[MAX];
 		cmdStruct cmdStructs[MAX];
 		int cmdStructIndex = 0;
-
-		//Transform input
-		/////////////////////////////////////////////////
 
 		if(strchr(cmdline, '|') == NULL){
 			cmdStruct* newStruct = transformStruct(cmdline);
@@ -119,62 +133,22 @@ int main() {
 			copyStruct(cmdStructs + cmdStructIndex, transformStruct(rest));
 		}
 
-			//Match against patterns
-			/////////////////////////////////////////////////
+		if(strcmp(cmdStructs[0].cmd, "exit") == 0){
+			fprintf(stdout, "Exiting Shell....\n");
+			exit(1);
+		}
 
-			// CLEAR
-			/////////////////////////////////////////////////
-			// if(!strcmp(tokenArray[0], "clear"))
-			// 	system("clear");
+		if(cmdStructIndex == 0){
+			executeCommand(cmdStructs[0]);
+		}
+		else{
+			executePipe(cmdStructIndex, cmdStructs);
+		}
 
-			// EXIT
-			/////////////////////////////////////////////////
-			// if(!strcmp(tokenArray[0], "exit")) {
-			// 	printf("Exiting Shell....\n");
-			// 	return 0;
-			// }
-
-			// ECHO
-			/////////////////////////////////////////////////
-			// Outputs whatever the user specifies
-
-			// if(!strcmp(tokenArray[0], "echo")) {
-			// 	int k = 0;
-
-			// 	// For each argument passed to echo	print
-			// 	while(k < argIndex) { printf("%s ", tokenArray[++k]); }
-
-			// 	printf("\n");
-			// }
-
-			// // LS
-			// /////////////////////////////////////////////////
-			// else if(!strcmp(tokenArray[argIndex], "ls")) {
-
-			// }
-
-			// // MORE
-			// /////////////////////////////////////////////////
-			// else if(!strcmp(tokenArray[argIndex], "more")) {
-			// }
-
-			// CD
-			/////////////////////////////////////////////////
-			// else if(!strcmp(tokenArray[0], "cd")) {
-			// 	changeDir(tokenArray);
-			// }
-
-			/////////////////////////////////////////////////
-		// }
-
-		//Cleanup
-		/////////////////////////////////////////////////
-
-		// int j = 0;
-		// while(j < 256) {
-		// 	tokenArray[j] = 0;
-		// 	j++;
-		// }
+		puts("Cleaning commands");
+		cleanCommands(cmdStructs, cmdStructIndex);
+		puts("Done cleaning commands");
+		puts("Done while loop");
 	}
 
 	return 0;

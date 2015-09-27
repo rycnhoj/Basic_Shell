@@ -27,21 +27,43 @@ char** buildCmdFromStruct(cmdStruct); // Builds a cstring array from struct
 static void forkChild(int, int, cmdStruct); // Forks a new child and pipes
 
 void executeCommand(cmdStruct c){
-	int status;
-	pid_t p = fork();
-	int bg = c.bg;
-	if(p == -1){
-		fprintf(stderr, "A forking error ocurred.\n");
-		exit(EXIT_FAILURE);
+	if(!strcmp(c.cmd, "clear"))
+		system("clear");
+	else if(!strcmp(c.cmd, "cd")){
+		//cd(c);
+		puts("CD");
 	}
-	// CHILD
-	else if (p == 0) {
-		executeHelper(c);
+	else if(!strcmp(c.cmd, "echo")){
+		puts("echo");
+		printf("%s", c.args[0]);
 	}
-	// PARENT
-	else {
-		if(!bg)
-			waitpid(p, &status, 0);
+	else if(!strcmp(c.cmd, "etime")){
+		//etime(c);
+		puts("etime");
+	}
+	else if(!strcmp(c.cmd, "limits")){
+		//limits(c);
+		puts("limits");
+	}
+	else{
+		puts("other");
+		int status;
+		pid_t p = fork();
+		if(p == -1){
+			fprintf(stderr, "A forking error ocurred.\n");
+			exit(EXIT_FAILURE);
+		}
+		// CHILD
+		else if (p == 0) {
+			executeHelper(c);
+			exit(1);
+		}
+		// PARENT
+		else {
+			int bg = c.bg;
+			//if(!bg)
+				waitpid(p, &status, 0);
+		}
 	}
 }
 
@@ -65,12 +87,13 @@ void executePipe(int numCmds, cmdStruct* cStructs){
 	executeHelper(cStructs[i]);
 }
 
+
 void executeHelper(cmdStruct c){
-	if(c.rd != -1){
+	if(!((c.rd == 1) || (c.rd == 2))){
 		int rdFD = open(c.rdFile);
-		if(c.rd == 0)
+		if(c.rd == 1)
 			close(STDIN_FILENO);
-		else if (c.rd == 1)
+		else if (c.rd == 2)
 			close(STDOUT_FILENO);
 		dup(rdFD);
 		close(rdFD);
@@ -78,6 +101,7 @@ void executeHelper(cmdStruct c){
 	char** cmdBuff = buildCmdFromStruct(c);
 	execv(c.cmd, cmdBuff);
 }
+
 
 void copyStruct(cmdStruct* dest, cmdStruct* src){
 	free(dest->cmd);
@@ -129,6 +153,7 @@ void forkChild(int inFD, int outFD, cmdStruct c){
 			close(outFD);
 		}
 		executeHelper(c);
+		exit(1);
 	}
 }
 

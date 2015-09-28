@@ -23,7 +23,7 @@ void executeCommand(cmdStruct); // Executes a single command
 void executePipe(int, cmdStruct*); // Executes n piped commands
 static void executeHelper(cmdStruct); // Main execution function
 void copyStruct(cmdStruct*, cmdStruct*); // Copies to dest from src
-char** buildCmdFromStruct(cmdStruct); // Builds a cstring array from struct
+void buildCmdFromStruct(char*[], int, cmdStruct); // Builds a cstring array from struct
 static void forkChild(int, int, cmdStruct); // Forks a new child and pipes
 
 void executeCommand(cmdStruct c){
@@ -46,7 +46,6 @@ void executeCommand(cmdStruct c){
 		puts("limits");
 	}
 	else{
-		puts("other");
 		int status;
 		pid_t p = fork();
 		if(p == -1){
@@ -61,7 +60,7 @@ void executeCommand(cmdStruct c){
 		// PARENT
 		else {
 			int bg = c.bg;
-			//if(!bg)
+			if(!bg)
 				waitpid(p, &status, 0);
 		}
 	}
@@ -89,7 +88,6 @@ void executePipe(int numCmds, cmdStruct* cStructs){
 
 void executeHelper(cmdStruct c){
 	if((c.rd == 1)||(c.rd == 2)){
-		puts("Redirecting");
 		int rdFD = open(c.rdFile);
 		if(c.rd == 1)
 			close(STDIN_FILENO);
@@ -98,13 +96,14 @@ void executeHelper(cmdStruct c){
 		dup(rdFD);
 		close(rdFD);
 	}
-	puts("1");
-	//char** cmdBuff = buildCmdFromStruct(c);
-	puts("2");
-	char* cmd[4] = {"/bin/ls", "-l", "-a", NULL};
-	puts("Executing");
-	execv("/bin/ls", cmd);
-	puts("Done Executing");
+	int i = 0;
+	int count = 0;
+	while(c.args[i++] != NULL)
+		count++;
+	count = count + 2;
+	char* cmd[count];
+	buildCmdFromStruct(cmd, count, c);
+	execv(cmd[0], cmd);
 }
 
 
@@ -129,18 +128,22 @@ void copyStruct(cmdStruct* dest, cmdStruct* src){
 	dest->bg = src->bg;
 }
 
-char** buildCmdFromStruct(cmdStruct c){
-	int i;
-	char* cmd[sizeof(c.args)+2];
-	char** cmdPtr;
-	cmd[0] = (char*) malloc (strlen(c.cmd));
-	strcpy(cmd[0], c.cmd);
-	for (i = 1; i < sizeof(c.args) + 1; i++) {
-		strcpy(cmd[i], c.args[i]);
+void buildCmdFromStruct(char* cmd[], int size, cmdStruct c){
+	// NEED TO PARSE IN ENV PATH
+	cmd[0] = (char*) malloc (strlen(c.cmd)+5);
+	strcpy(cmd[0], "/bin/");
+	strcat(cmd[0], c.cmd);
+	if(size > 2){
+		int i;
+		int j = 0;
+		for(i = 1; i < size-1; i++){
+			cmd[i] = (char*) malloc (strlen(c.args[j]));
+			strcpy(cmd[i], c.args[j++]);
+		}
+		cmd[size] = NULL;
 	}
-	cmd[i] = NULL;
-
-	return cmdPtr;
+	else
+		cmd[1] = NULL;
 }
 
 void forkChild(int inFD, int outFD, cmdStruct c){

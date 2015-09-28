@@ -17,16 +17,18 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include "define.h"
 
-void executeCommand(cmdStruct); // Executes a single command
-void executePipe(int, cmdStruct*); // Executes n piped commands
-static void executeHelper(cmdStruct); // Main execution function
+char* executeCommand(cmdStruct); // Executes a single command
+char* executePipe(int, cmdStruct*); // Executes n piped commands
+static int executeHelper(cmdStruct); // Main execution function
 void copyStruct(cmdStruct*, cmdStruct*); // Copies to dest from src
-void buildCmdFromStruct(char*[], int, cmdStruct); // Builds a cstring array from struct
-static void forkChild(int, int, cmdStruct); // Forks a new child and pipes
+void buildCmdFromStruct(char*[], int, cmdStruct, char*); // Builds a cstring array from struct
+static char* forkChild(int, int, cmdStruct); // Forks a new child and pipes
+char* getCmdPath(char*);
 
-void executeCommand(cmdStruct c){
+char* executeCommand(cmdStruct c){
 	if(!strcmp(c.cmd, "clear"))
 		system("clear");
 	else if(!strcmp(c.cmd, "cd")){
@@ -54,7 +56,9 @@ void executeCommand(cmdStruct c){
 		}
 		// CHILD
 		else if (p == 0) {
-			executeHelper(c);
+			int err = executeHelper(c);
+			if(err == -1)
+				return c.cmd;
 			exit(1);
 		}
 		// PARENT
@@ -64,35 +68,47 @@ void executeCommand(cmdStruct c){
 				waitpid(p, &status, 0);
 		}
 	}
+	return "";
 }
 
-void executePipe(int numCmds, cmdStruct* cStructs){
+char* executePipe(int numCmds, cmdStruct* cStructs){
 	int in = 0;
+	int err;
 	int fd[2];
+	char* cmdErr = NULL;
 	pid_t pid;
 
 	int i;
 	for(i = 0; i < numCmds - 1; ++i){
 		pipe(fd);
-		forkChild(in, fd[1], cStructs[i]);
+		cmdErr = forkChild(in, fd[1], cStructs[i]);
 		close(fd[1]);
 		in = fd[0];
+		if(strcmp(cmdErr, "") != 0)
+			return cmdErr;
 	}
 	if (in != 0){
 		close(STDIN_FILENO);
 		dup(in);
 		close(in);
 	}
-	executeHelper(cStructs[i]);
+	err = executeHelper(cStructs[i]);
+	if(err == -1)
+		return cStructs[i].cmd;
+	return "";
 }
 
-void executeHelper(cmdStruct c){
+int executeHelper(cmdStruct c){
 	if((c.rd == 1)||(c.rd == 2)){
-		int rdFD = open(c.rdFile);
-		if(c.rd == 1)
+		int rdFD;
+		if(c.rd == 1) {
+			// RUN IN FILE FUNCTION HERE ON c.rdFile
 			close(STDIN_FILENO);
-		else if (c.rd == 2)
+		}
+		else if (c.rd == 2){
+			// RUN OUT FILE FUNCTION HERE ON c.rdFile
 			close(STDOUT_FILENO);
+		}
 		dup(rdFD);
 		close(rdFD);
 	}
@@ -102,8 +118,13 @@ void executeHelper(cmdStruct c){
 		count++;
 	count = count + 2;
 	char* cmd[count];
-	buildCmdFromStruct(cmd, count, c);
+	char* cmdPath = getCmdPath(c.cmd);
+	if(cmdPath == NULL){
+		return -1;
+	}
+	buildCmdFromStruct(cmd, count, c, cmdPath);
 	execv(cmd[0], cmd);
+	return 0;
 }
 
 
@@ -113,7 +134,6 @@ void copyStruct(cmdStruct* dest, cmdStruct* src){
 	strcpy(dest->cmd, src->cmd);
 	int i = 0;
 	while(src->args[i] != NULL){
-		printf("%s\n", src->args[i]);
 		free(dest->args[i]);
 		dest->args[i] = (char*) malloc (sizeof(src->args[i]));
 		strcpy(dest->args[i], src->args[i]);
@@ -128,11 +148,9 @@ void copyStruct(cmdStruct* dest, cmdStruct* src){
 	dest->bg = src->bg;
 }
 
-void buildCmdFromStruct(char* cmd[], int size, cmdStruct c){
-	// NEED TO PARSE IN ENV PATH
-	cmd[0] = (char*) malloc (strlen(c.cmd)+5);
-	strcpy(cmd[0], "/bin/");
-	strcat(cmd[0], c.cmd);
+void buildCmdFromStruct(char* cmd[], int size, cmdStruct c, char* newCmd){
+	cmd[0] = (char*) malloc(strlen(newCmd));
+	strcpy(cmd[0], newCmd);
 	if(size > 2){
 		int i;
 		int j = 0;
@@ -146,7 +164,7 @@ void buildCmdFromStruct(char* cmd[], int size, cmdStruct c){
 		cmd[1] = NULL;
 }
 
-void forkChild(int inFD, int outFD, cmdStruct c){
+char* forkChild(int inFD, int outFD, cmdStruct c){
 	pid_t pid = fork();
 	if (pid == 0){
 		if(inFD != 0){
@@ -159,9 +177,29 @@ void forkChild(int inFD, int outFD, cmdStruct c){
 			dup(outFD);
 			close(outFD);
 		}
-		executeHelper(c);
+		if(executeHelper(c) == -1)
+			return c.cmd;
 		exit(1);
 	}
+	return "";
+}
+
+char* getCmdPath(char* cmd) {
+	char* getAllPaths = getenv("PATH");
+	char* path;
+	char* tempPath;
+
+	while(path = strtok_r(getAllPaths, ":", &getAllPaths)) {
+		tempPath = (char*)malloc(strlen(path)+strlen(cmd)+2);
+		strcat(tempPath, path);
+		strcat(tempPath, "/");
+		strcat(tempPath, cmd);
+
+		struct stat FileAttrib;
+		if(stat(tempPath, &FileAttrib) == 0)
+			return tempPath;
+	}
+	return "";
 }
 
 #endif

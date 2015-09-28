@@ -137,10 +137,17 @@ int main() {
 			exit(1);
 		}
 
-		if(cmdStructIndex == 0)
-			executeCommand(cmdStructs[0]);
-		else
-			executePipe(cmdStructIndex, cmdStructs);
+		char* err = "";
+		if(cmdStructIndex == 0){
+			err = executeCommand(cmdStructs[0]);
+		}
+		else{
+			err = executePipe(cmdStructIndex, cmdStructs);
+		}
+		if(strlen(err) != 0){
+			fprintf(stdout, "%s: Command not found.\n", err);
+		}
+		err = "";
 		cleanCommands(cmdStructs, cmdStructIndex);
 	}
 

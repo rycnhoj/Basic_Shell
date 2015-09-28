@@ -37,6 +37,7 @@ char* executeCommand(cmdStruct c){
 	}
 	else if(!strcmp(c.cmd, "echo")){
 		puts("echo");
+		// NEED TO CHANGE THIS
 		printf("%s", c.args[0]);
 	}
 	else if(!strcmp(c.cmd, "etime")){
@@ -118,12 +119,15 @@ int executeHelper(cmdStruct c){
 		count++;
 	count = count + 2;
 	char* cmd[count];
+	// only if cmdPath has "/"
 	char* cmdPath = getCmdPath(c.cmd);
 	if(cmdPath == NULL){
 		return -1;
 	}
 	buildCmdFromStruct(cmd, count, c, cmdPath);
+// etime
 	execv(cmd[0], cmd);
+// etime
 	return 0;
 }
 
@@ -139,8 +143,9 @@ void copyStruct(cmdStruct* dest, cmdStruct* src){
 		strcpy(dest->args[i], src->args[i]);
 		i++;
 	}
-	if(strcmp(src->rdFile, "") != 0){
-		free(dest->rdFile);
+	if(!strcmp(src->rdFile, "")){
+		if(dest->rdFile != NULL)
+			free(dest->rdFile);
 		dest->rdFile = (char*) malloc (sizeof(src->rdFile));
 		strcpy(dest->rdFile, src->rdFile);
 	}

@@ -128,7 +128,7 @@ FILE * getInFile(char * fileName) {
 		return inFile;
 	} else {
 		// Not working
-	} 
+	}
 }
 
 

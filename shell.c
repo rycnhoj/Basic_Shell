@@ -113,7 +113,7 @@ FILE * getOutFile(char * fileName) {
 	if (outFile) {
 		return outFile;
 	} else {
-		// Not working
+		return NULL;
 	}
 }
 
@@ -127,7 +127,7 @@ FILE * getInFile(char * fileName) {
 	if (inFile) {
 		return inFile;
 	} else {
-		// Not working
+		return NULL;
 	}
 }
 

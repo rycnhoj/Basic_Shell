@@ -11,28 +11,31 @@
 #define MAX 256
 
 static char* getCmd() {
-	static char buf[1024];
+	static char cmdLine[1024]; // 
 
 	// Print Prompt
 	/////////////////////////////////////////////////////
+	
+	char hostname[1024]; 		// hold hostname string
+	hostname[1023] = '\0'; 		// adds Null character to end of string
+	gethostname(hostname, 1023);// 
 
-	char hostname[1024]; hostname[1023] = '\0';
-	gethostname(hostname, 1023);
+	printf("%s@", getenv("USER")); 	// print user followed by '@'
+	printf("%s:", hostname);		// print hostname followed by ':'
+	printf("%s => ", getenv("PWD"));// print working directory with arrow
 
-	printf("%s@", getenv("USER"));
-	printf("%s:", hostname);
-	printf("%s => ", getenv("PWD"));
-
-	//Read input
+	// Read input
 	/////////////////////////////////////////////////////
 
-	if (fgets(buf, sizeof(buf), stdin) == NULL)
+	// gets input from user and stores in cmdLine or returns NULL
+	if (fgets(cmdLine, sizeof(cmdLine), stdin) == NULL)
 		return NULL;
 
-	if (buf[strlen(buf) - 1] == '\n')
-		buf[strlen(buf) - 1] = 0;
+	// checks and adds Null character if needed
+	if (cmdLine[strlen(cmdLine) - 1] == '\n')
+		cmdLine[strlen(cmdLine) - 1] = 0;
 
-	return buf;
+	return cmdLine; // returns cmdLine string
 }
 
 int changeEnvs(char * tokenArray[], int arraySize) {
@@ -99,9 +102,41 @@ void cleanCommands(cmdStruct* cStruct, int cIndex){
 	}
 }
 
+FILE * getOutFile(char * fileName) {
+
+	FILE * outFile;
+
+	// If file doesn't exist then it is created
+	// If exists overwrites file in write mode
+	outFile = fopen(fileName, "w");
+
+	if (outFile) {
+		return outFile;
+	} else {
+		// Not working
+	}
+}
+
+FILE * getInFile(char * fileName) {
+
+	FILE * inFile;
+
+	// If file exists opens in read mode
+	inFile = fopen(fileName, "r");
+
+	if (inFile) {
+		return inFile;
+	} else {
+		// Not working
+	} 
+}
+
+
 int main() {
 	char* cmdline; // The Whole Command Line
 
+	// This is the main Loop
+	// getCmd returns string of whole command line
 	while ((cmdline = getCmd()) != NULL) {
 		char* token;
 		char* rest = cmdline;
@@ -137,17 +172,10 @@ int main() {
 			exit(1);
 		}
 
-		char* err = "";
-		if(cmdStructIndex == 0){
-			err = executeCommand(cmdStructs[0]);
-		}
-		else{
-			err = executePipe(cmdStructIndex, cmdStructs);
-		}
-		if(strlen(err) != 0){
-			fprintf(stdout, "%s: Command not found.\n", err);
-		}
-		err = "";
+		if(cmdStructIndex == 0)
+			executeCommand(cmdStructs[0]);
+		else
+			executePipe(cmdStructIndex, cmdStructs);
 		cleanCommands(cmdStructs, cmdStructIndex);
 	}
 

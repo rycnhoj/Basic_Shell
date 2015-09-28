@@ -103,12 +103,14 @@ void cleanCommands(cmdStruct* cStruct, int cIndex){
 }
 
 FILE * getOutFile(char * fileName) {
-
+	puts("asfa");
 	FILE * outFile;
 
 	// If file doesn't exist then it is created
 	// If exists overwrites file in write mode
 	outFile = fopen(fileName, "w");
+
+	printf("%s\n", fileName);
 
 	if (outFile) {
 		return outFile;

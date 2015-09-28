@@ -26,7 +26,9 @@ static int executeHelper(cmdStruct); // Main execution function
 void copyStruct(cmdStruct*, cmdStruct*); // Copies to dest from src
 void buildCmdFromStruct(char*[], int, cmdStruct, char*); // Builds a cstring array from struct
 static char* forkChild(int, int, cmdStruct); // Forks a new child and pipes
-char* getCmdPath(char*);
+char* getCmdPath(char*); // Gets the path of a command without "/"
+extern FILE* getOutFile(char*);
+extern FILE* getInFile(char*);
 
 char* executeCommand(cmdStruct c){
 	if(!strcmp(c.cmd, "clear"))
@@ -101,13 +103,22 @@ char* executePipe(int numCmds, cmdStruct* cStructs){
 
 int executeHelper(cmdStruct c){
 	if((c.rd == 1)||(c.rd == 2)){
+		puts("test");
+		printf("%i\n", c.rd);
 		int rdFD;
 		if(c.rd == 1) {
-			// RUN IN FILE FUNCTION HERE ON c.rdFile
+			FILE* inFile = getInFile(c.rdFile);
+			if(inFile == NULL)
+				return -1;
+			open(inFile);
 			close(STDIN_FILENO);
 		}
 		else if (c.rd == 2){
-			// RUN OUT FILE FUNCTION HERE ON c.rdFile
+			puts("ou");
+			FILE* outFile = getOutFile(c.rdFile);
+			if(outFile == NULL);
+				return -1;
+			open(outFile);
 			close(STDOUT_FILENO);
 		}
 		dup(rdFD);
@@ -119,8 +130,11 @@ int executeHelper(cmdStruct c){
 		count++;
 	count = count + 2;
 	char* cmd[count];
-	// only if cmdPath has "/"
-	char* cmdPath = getCmdPath(c.cmd);
+	char* cmdPath;
+	if(strchr(c.cmd, '/') == NULL)
+		cmdPath = getCmdPath(c.cmd);
+	else
+		cmdPath = c.cmd;
 	if(cmdPath == NULL){
 		return -1;
 	}

@@ -22,6 +22,8 @@
 #include <sys/time.h>
 #include "define.h"
 
+#define clear() printf("\033[H\033[J")
+
 int executeCommand(cmdStruct); // Executes a single command
 int executePipe(int, cmdStruct*); // Executes n piped commands
 static int executeHelper(cmdStruct); // Main execution function
@@ -39,7 +41,7 @@ void limits(pid_t);
 int executeCommand(cmdStruct c){
 	int ret = 0;
 	if(!strcmp(c.cmd, "clear"))
-		system("clear");
+		clear();
 
 	else if(!strcmp(c.cmd, "cd")){
 		char* path = getenv("HOME");

@@ -22,6 +22,8 @@
 #include <sys/time.h>
 #include "define.h"
 
+#define clear() printf("\033[H\033[J")
+
 int executeCommand(cmdStruct); // Executes a single command
 int executePipe(int, cmdStruct*); // Executes n piped commands
 static int executeHelper(cmdStruct); // Main execution function
@@ -40,7 +42,7 @@ int lim;
 int executeCommand(cmdStruct c){
 	int ret = 0;
 	if(!strcmp(c.cmd, "clear"))
-		system("clear");
+		clear();
 
 	else if(!strcmp(c.cmd, "cd")){
 		char* path = getenv("HOME");
@@ -135,12 +137,11 @@ int executeCommand(cmdStruct c){
 
 		int status;
 		pid_t p = fork();
-		if (lim == 1)
-		{
+		if (lim == 1){
 			limits(p);
 		}
 		if(p == -1){
-			fprintf(stderr, "A forking error ocurred.\n");
+			fprintf(stdout, "A forking error ocurred.\n");
 			exit(EXIT_FAILURE);
 		}
 		// CHILD
@@ -155,6 +156,7 @@ int executeCommand(cmdStruct c){
 				dup(rdFD);
 				close(rdFD);
 			}
+
 			ret = executeHelper(c);
 			exit(1);
 		}
@@ -308,7 +310,6 @@ void limits(pid_t x) {
         }
 
         fclose(file);
-        printf("%s\n", path);
 }
 
 #endif

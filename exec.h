@@ -33,6 +33,8 @@ extern FILE* getOutFile(char*);
 extern FILE* getInFile(char*);
 extern cmdStruct* transformStruct(char*);
 extern char* to_path(const char*);
+int lim;
+void limits(pid_t);
 
 int executeCommand(cmdStruct c){
 	int ret = 0;
@@ -105,7 +107,22 @@ int executeCommand(cmdStruct c){
 	}
 	else if(!strcmp(c.cmd, "limits")){
 		//limits(c);
-		printf("limits\n");
+		char* buffer = (char*) malloc(1);
+                strcpy(buffer, "");
+                int i = 0;
+                int tot = 0;
+                while(c.args[i] != NULL){
+                        tot = tot + strlen(c.args[i]);
+                        buffer = (char*) realloc(buffer, tot+2);
+                        strcat(buffer, c.args[i]);
+                        strcat(buffer, " ");
+                        i++;
+                }
+
+		lim = 1;
+                cmdStruct* limitsCmd = transformStruct(buffer);
+                ret = executeCommand(*limitsCmd);
+		lim = 0;		
 	}
 	else{
 		int rdFD = -1;
@@ -116,8 +133,11 @@ int executeCommand(cmdStruct c){
 
 		int status;
 		pid_t p = fork();
+		if (lim == 1){
+			limits(p);
+		}
 		if(p == -1){
-			fprintf(stderr, "A forking error ocurred.\n");
+			fprintf(stdout, "A forking error ocurred.\n");
 			exit(EXIT_FAILURE);
 		}
 		// CHILD
@@ -132,6 +152,7 @@ int executeCommand(cmdStruct c){
 				dup(rdFD);
 				close(rdFD);
 			}
+
 			ret = executeHelper(c);
 			exit(1);
 		}
@@ -296,7 +317,6 @@ void limits(pid_t x)
         }
 
         fclose(file);
-        printf("%s\n", path);
 }
 
 #endif

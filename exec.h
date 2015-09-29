@@ -15,48 +15,105 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include "define.h"
 
-char* executeCommand(cmdStruct); // Executes a single command
-char* executePipe(int, cmdStruct*); // Executes n piped commands
+int executeCommand(cmdStruct); // Executes a single command
+int executePipe(int, cmdStruct*); // Executes n piped commands
 static int executeHelper(cmdStruct); // Main execution function
 void copyStruct(cmdStruct*, cmdStruct*); // Copies to dest from src
 void buildCmdFromStruct(char*[], int, cmdStruct, char*); // Builds a cstring array from struct
-static char* forkChild(int, int, cmdStruct); // Forks a new child and pipes
+static int forkChild(int, int, cmdStruct); // Forks a new child and pipes
 char* getCmdPath(char*); // Gets the path of a command without "/"
 extern FILE* getOutFile(char*);
 extern FILE* getInFile(char*);
+extern cmdStruct* transformStruct(char*);
+extern char* to_path(const char*);
 
-char* executeCommand(cmdStruct c){
+int executeCommand(cmdStruct c){
+	int ret = 0;
 	if(!strcmp(c.cmd, "clear"))
 		system("clear");
 
 	else if(!strcmp(c.cmd, "cd")){
-		//cd(c);
-		changeDir(c.args);
+		char* path = getenv("HOME");
+		if(c.args[0] != NULL)
+			if(c.args[1] != NULL){
+				fprintf(stdout, "cd: Too many arguments.\n");
+				return -1;
+			}
+			else
+				path = to_path(c.args[0]);
+		struct stat s;
+		int error = stat(path, &s);
+		if(error == -1)
+			if(ENOENT == errno){
+				fprintf(stdout, "%s: Does not exist or is not a directory.\n", path);
+				return -1;
+		}
+		else if(!S_ISDIR(s.st_mode)){
+			fprintf(stdout, "%s: Does not exist or is not a directory.\n", path);
+			return -1;
+		}
+
+		if(chdir(path) != 0){
+			fprintf(stdout, "cd: An error occurred.\n");
+			return -1;
+		}
+		setenv("PWD", path, 1);
 	}
 	else if(!strcmp(c.cmd, "echo")){
-		// puts("echo");
-		int p = 0;
-		while(c.args[p] != NULL) {
-			printf("%s ", c.args[p]);
-			p++;
+		char* buffer = (char*) malloc(1);
+		strcpy(buffer, "");
+		int i = 0;
+		int tot = 0;
+		while(c.args[i] != NULL){
+			tot = tot + strlen(c.args[i]);
+			buffer = (char*) realloc(buffer, tot+2);
+			strcat(buffer, c.args[i]);
+			strcat(buffer, " ");
+			i++;
 		}
-		printf("\n");
-		
+		fprintf(stdout, "%s\n", buffer);
 	}
 	else if(!strcmp(c.cmd, "etime")){
-		//etime(c);
-		printf("etime\n");
+		struct timeval befTV, aftTV;
+		time_t s;
+		time_t ms;
+		char* buffer = (char*) malloc(1);
+		strcpy(buffer, "");
+		int i = 0;
+		int tot = 0;
+		while(c.args[i] != NULL){
+			tot = tot + strlen(c.args[i]);
+			buffer = (char*) realloc(buffer, tot+2);
+			strcat(buffer, c.args[i]);
+			strcat(buffer, " ");
+			i++;
+		}
+		cmdStruct* etimeCmd = transformStruct(buffer);
+		gettimeofday(&befTV, NULL);
+		ret = executeCommand(*etimeCmd);
+		gettimeofday(&aftTV, NULL);
+		s = aftTV.tv_sec - befTV.tv_sec;
+		ms = aftTV.tv_usec - befTV.tv_usec;
+		printf("Elapsed Time: %lld.%06llds\n", (long long)s, (long long)ms);
 	}
 	else if(!strcmp(c.cmd, "limits")){
 		//limits(c);
 		printf("limits\n");
 	}
 	else{
+		int rdFD = -1;
+		if(c.rd == 1)
+			rdFD = open(c.rdFile, O_RDONLY);
+		else if(c.rd == 2)
+			rdFD = open(c.rdFile, O_WRONLY|O_CREAT, 0777);
+
 		int status;
 		pid_t p = fork();
 		if(p == -1){
@@ -65,71 +122,56 @@ char* executeCommand(cmdStruct c){
 		}
 		// CHILD
 		else if (p == 0) {
-			int err = executeHelper(c);
-			if(err == -1)
-				return c.cmd;
+			if(c.rd == 1) {
+				close(STDIN_FILENO);
+				dup(rdFD);
+				close(rdFD);
+			}
+			else if (c.rd == 2){
+				close(STDOUT_FILENO);
+				dup(rdFD);
+				close(rdFD);
+			}
+			ret = executeHelper(c);
 			exit(1);
 		}
 		// PARENT
 		else {
+			if(rdFD != -1)
+				close(rdFD);
 			int bg = c.bg;
-			if(!bg)
+			if(bg == 0)
 				waitpid(p, &status, 0);
 		}
 	}
-	return "";
+	return ret;
 }
 
-char* executePipe(int numCmds, cmdStruct* cStructs){
+int executePipe(int numCmds, cmdStruct* cStructs){
 	int in = 0;
-	int err;
+	int ret;
 	int fd[2];
-	char* cmdErr = NULL;
 	pid_t pid;
 
 	int i;
 	for(i = 0; i < numCmds - 1; ++i){
 		pipe(fd);
-		cmdErr = forkChild(in, fd[1], cStructs[i]);
+		ret = forkChild(in, fd[1], cStructs[i]);
 		close(fd[1]);
+		if(ret = -1)
+			return ret;
 		in = fd[0];
-		if(strcmp(cmdErr, "") != 0)
-			return cmdErr;
 	}
 	if (in != 0){
 		close(STDIN_FILENO);
 		dup(in);
 		close(in);
 	}
-	err = executeHelper(cStructs[i]);
-	if(err == -1)
-		return cStructs[i].cmd;
-	return "";
+	ret = executeHelper(cStructs[i]);
+	return ret;
 }
 
 int executeHelper(cmdStruct c){
-	if((c.rd == 1)||(c.rd == 2)){
-		puts("test");
-		printf("%i\n", c.rd);
-		int rdFD;
-		if(c.rd == 1) {
-			FILE* inFile = getInFile(c.rdFile);
-			if(inFile == NULL)
-				return -1;
-			open(inFile);
-			close(STDIN_FILENO);
-		}
-		else if (c.rd == 2){
-			puts("ou");
-			FILE* outFile = getOutFile(c.rdFile);
-			if(outFile == NULL);
-				return -1;
-			open(outFile);
-			close(STDOUT_FILENO);
-		}
-		dup(rdFD);
-		close(rdFD);
-	}
 	int i = 0;
 	int count = 0;
 	while(c.args[i++] != NULL)
@@ -142,15 +184,17 @@ int executeHelper(cmdStruct c){
 	else
 		cmdPath = c.cmd;
 	if(cmdPath == NULL){
+		fprintf(stdout, "%s: Command not found.\n", c.cmd);
 		return -1;
 	}
 	buildCmdFromStruct(cmd, count, c, cmdPath);
-// etime
+	if(c.bg == 1)
+		printf("[Position In Queue <Not implemented>]\t[%d]\n", getpid());
 	execv(cmd[0], cmd);
-// etime
+	if(c.bg == 1)
+		printf("[Position In Queue <Not implemented>]+\t[%s]\n", c.cmd);
 	return 0;
 }
-
 
 void copyStruct(cmdStruct* dest, cmdStruct* src){
 	free(dest->cmd);
@@ -189,7 +233,8 @@ void buildCmdFromStruct(char* cmd[], int size, cmdStruct c, char* newCmd){
 		cmd[1] = NULL;
 }
 
-char* forkChild(int inFD, int outFD, cmdStruct c){
+int forkChild(int inFD, int outFD, cmdStruct c){
+	int ret = 0;
 	pid_t pid = fork();
 	if (pid == 0){
 		if(inFD != 0){
@@ -202,11 +247,11 @@ char* forkChild(int inFD, int outFD, cmdStruct c){
 			dup(outFD);
 			close(outFD);
 		}
-		if(executeHelper(c) == -1)
-			return c.cmd;
+		fprintf(stderr, "now executing %s\n", c.cmd);
+		ret = executeHelper(c);
 		exit(1);
 	}
-	return "";
+	return ret;
 }
 
 char* getCmdPath(char* cmd) {
@@ -225,6 +270,33 @@ char* getCmdPath(char* cmd) {
 			return tempPath;
 	}
 	return "";
+}
+
+void limits(pid_t x)
+{
+        char pid[15];
+        snprintf(pid, 10, "%d", (int) x);
+        char path[100] = "/proc/";
+        strcat(path, pid);
+        strcat(path, "/limits");
+        char tempLine[256];
+
+        FILE* file = fopen(path, "r");
+
+        int counter = 0;
+
+        while(fgets(tempLine, sizeof(tempLine), file))
+        {
+                if (counter == 2 || counter ==  7 || counter ==  8 || counter == 12)
+                {
+                        printf("%s", tempLine);
+                }
+                ++counter;
+
+        }
+
+        fclose(file);
+        printf("%s\n", path);
 }
 
 #endif

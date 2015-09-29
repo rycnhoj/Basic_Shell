@@ -39,13 +39,20 @@ static char* getCmd() {
 }
 
 int changeEnvs(char * tokenArray[], int arraySize) {
-	int i;
+	int i = 0;
+	char* asdf;
 	for (i = 0; i < arraySize; i++){
+		if(i > arraySize)
+			break;
 		char* token = tokenArray[i];
-		if(token[0] == '$') {
+		if(token[0] == '$'){
 			char* env = token + 1;
 			if (getenv(env) != NULL) { // Replace the value if it exists
-				tokenArray[i] = getenv(env);
+				char envVar[strlen(env)+1];
+				strcpy(envVar, getenv(env));
+				token = (char*) realloc (tokenArray[i], strlen(envVar)+1);
+				strcpy(token, envVar);
+				free(envVar);
 			} else { // Signal an error if it does not exist
 				printf("%s: Undefined variable.\n", env);
 				return -1;
@@ -63,6 +70,12 @@ cmdStruct* transformStruct(char* cmdToken){
 	int argIndex = 0;
 
 	token = strtok_r(rest, " ", &rest);
+	if((strcmp(token, ">") == 0)
+	|| (strcmp(token, "<") == 0)
+	|| (strcmp(token, "|") == 0)) {
+		fprintf(stdout, "%s: Command not found.\n", token);
+		return NULL;
+	}
 	temp.cmd = (char*) malloc (strlen(token));
 	strcpy(temp.cmd, token);
 
@@ -73,44 +86,84 @@ cmdStruct* transformStruct(char* cmdToken){
 			else if(strcmp(token, ">") == 0)
 				temp.rd = 2;
 			token = strtok_r(rest, " ", &rest);
+			if(checkTokenForInvalid(token) == -1)
+				return NULL;
 			temp.rdFile = (char*) malloc (strlen(token));
 			strcpy(temp.rdFile, token);
+		}
+		else if(strcmp(token, "&") == 0){
+			temp.bg = 1;
 		}
 		else {
 			temp.args[argIndex] = (char*) malloc(strlen(token));
 			strcpy(temp.args[argIndex++], token);
 		}
-		if (changeEnvs(temp.args, argIndex) == -1)
+		if (changeEnvs(temp.args, argIndex) == -1){
 			return NULL;
+		}
 	}
 	return tempPtr;
 }
 
-void cleanCommands(cmdStruct* cStruct, int cIndex){
+int checkTokenForInvalid(char* token){
+	if(strchr(token, '>') != NULL){
+		fprintf(stderr, "%s: Invalid token found.\n", token);
+		return -1;
+	}
+	else if(strchr(token, '<') != NULL){
+		fprintf(stderr, "%s: Invalid token found.\n", token);
+		return -1;
+	}
+	else if(strchr(token, '&') != NULL){
+		fprintf(stderr, "%s: Invalid token found.\n", token);
+		return -1;
+	}
+	else if(token == NULL){
+		fprintf(stderr, "ERROR: No file name found for redirection.\n");
+		return -1;
+	}
+	else
+		return 0;
+}
+
+void initializeCommands(cmdStruct* cStruct, int size){
 	int i;
 	int j;
-	for (i = 0; i < cIndex; i++){
-		j = 0;
-		free(cStruct[i].cmd);
-		while(cStruct[i].args[j] != NULL){
-			free(cStruct[i].args[j]);
-			j++;
-		}
-		free(cStruct[i].rdFile);
+	for(i = 0; i < size; i++){
+		cStruct[i].cmd = 0;
+		for(j = 0; j < MAX; j++)
+			cStruct[i].args[j] = NULL;
+		cStruct[i].rdFile = NULL;
 		cStruct[i].rd = -1;
 		cStruct[i].bg = -1;
 	}
 }
 
+void cleanCommands(cmdStruct* cStruct){
+	int i = 0;
+	int j;
+	while(cStruct[i].cmd != NULL){
+		if(cStruct[i].cmd != NULL)
+			free(cStruct[i].cmd);
+		for(j = 0; j < MAX; j++)
+			if(cStruct[i].args[j] != NULL){
+				free(cStruct[i].args[j]);
+				cStruct[i].args[j] = NULL;
+			}
+		if(cStruct[i].rdFile != NULL)
+			free(cStruct[i].rdFile);
+		cStruct[i].rd = -1;
+		cStruct[i].bg = -1;
+		i++;
+	}
+}
+
 FILE * getOutFile(char * fileName) {
-	puts("asfa");
 	FILE * outFile;
 
 	// If file doesn't exist then it is created
 	// If exists overwrites file in write mode
 	outFile = fopen(fileName, "w");
-
-	printf("%s\n", fileName);
 
 	if (outFile) {
 		return outFile;
@@ -136,6 +189,7 @@ FILE * getInFile(char * fileName) {
 
 int main() {
 	char* cmdline; // The Whole Command Line
+	int cmdStructIndex;
 
 	// This is the main Loop
 	// getCmd returns string of whole command line
@@ -144,42 +198,44 @@ int main() {
 		char* rest = cmdline;
 		char* tokenArray[MAX];
 		cmdStruct cmdStructs[MAX];
-		int cmdStructIndex = 0;
+		cmdStructIndex = 0;
+
+		char* backG = strchr(cmdline, '&');
+		if(backG == NULL) { }
+		else if((backG-cmdline+1) != strlen(cmdline)){
+			fprintf(stderr, "&: Backgrounding can only occur at end of command.\n");
+			continue;
+		}
+
+		initializeCommands(cmdStructs, MAX);
 
 		if(strchr(cmdline, '|') == NULL){
 			cmdStruct* newStruct = transformStruct(cmdline);
-			cmdStruct* firstStruct = &cmdStructs[0];
 			if(newStruct == NULL)
 				continue;
-			copyStruct(firstStruct, newStruct);
+			else if(strcmp(newStruct->cmd, "exit") == 0){
+				fprintf(stdout, "Exiting Shell....\n");
+				return 0;
+			}
+			if(executeCommand(*newStruct) == -1)
+				continue;
 		}
 		else {
 			cmdStruct* newStruct;
-			while(token = strtok_r(rest, "|", &rest)){
+			while((token = strtok_r(rest, "|", &rest)) != NULL){
 				newStruct = transformStruct(token);
 				if(newStruct == NULL)
 					continue;
 				copyStruct(cmdStructs + cmdStructIndex++, newStruct);
 			}
-			if(newStruct == NULL)
+			if(strcmp(cmdStructs[0].cmd, "exit") == 0){
+				fprintf(stdout, "Exiting Shell....\n");
+				return 0;
+			}
+			if(executePipe(cmdStructIndex, cmdStructs) == -1)
 				continue;
-			newStruct = transformStruct(rest);
-			if(newStruct == NULL)
-				continue;
-			copyStruct(cmdStructs + cmdStructIndex, transformStruct(rest));
 		}
-
-		if(strcmp(cmdStructs[0].cmd, "exit") == 0){
-			fprintf(stdout, "Exiting Shell....\n");
-			exit(1);
-		}
-
-		if(cmdStructIndex == 0)
-			executeCommand(cmdStructs[0]);
-		else
-			executePipe(cmdStructIndex, cmdStructs);
-		cleanCommands(cmdStructs, cmdStructIndex);
+		cleanCommands(cmdStructs);
 	}
-
 	return 0;
 }

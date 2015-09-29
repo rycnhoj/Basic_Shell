@@ -33,6 +33,9 @@ extern FILE* getOutFile(char*);
 extern FILE* getInFile(char*);
 extern cmdStruct* transformStruct(char*);
 extern char* to_path(const char*);
+void limits(pid_t);
+
+int lim;
 
 int executeCommand(cmdStruct c){
 	int ret = 0;
@@ -79,6 +82,7 @@ int executeCommand(cmdStruct c){
 			i++;
 		}
 		fprintf(stdout, "%s\n", buffer);
+		free(buffer);
 	}
 	else if(!strcmp(c.cmd, "etime")){
 		struct timeval befTV, aftTV;
@@ -96,6 +100,7 @@ int executeCommand(cmdStruct c){
 			i++;
 		}
 		cmdStruct* etimeCmd = transformStruct(buffer);
+		free(buffer);
 		gettimeofday(&befTV, NULL);
 		ret = executeCommand(*etimeCmd);
 		gettimeofday(&aftTV, NULL);
@@ -104,8 +109,22 @@ int executeCommand(cmdStruct c){
 		printf("Elapsed Time: %lld.%06llds\n", (long long)s, (long long)ms);
 	}
 	else if(!strcmp(c.cmd, "limits")){
-		//limits(c);
-		printf("limits\n");
+		char* buffer = (char*) malloc(1);
+		strcpy(buffer, "");
+		int i = 0;
+		int tot = 0;
+		while(c.args[i] != NULL){
+			tot = tot + strlen(c.args[i]);
+			buffer = (char*) realloc(buffer, tot+2);
+			strcat(buffer, c.args[i]);
+			strcat(buffer, " ");
+			i++;
+		}
+		lim = 1;
+		cmdStruct* etimeCmd = transformStruct(buffer);
+		free(buffer);
+		ret = executeCommand(*etimeCmd);
+		lim = 0;
 	}
 	else{
 		int rdFD = -1;
@@ -116,6 +135,10 @@ int executeCommand(cmdStruct c){
 
 		int status;
 		pid_t p = fork();
+		if (lim == 1)
+		{
+			limits(p);
+		}
 		if(p == -1){
 			fprintf(stderr, "A forking error ocurred.\n");
 			exit(EXIT_FAILURE);
@@ -140,7 +163,7 @@ int executeCommand(cmdStruct c){
 			if(rdFD != -1)
 				close(rdFD);
 			int bg = c.bg;
-			if(bg == 0)
+			if(bg != 1)
 				waitpid(p, &status, 0);
 		}
 	}
@@ -158,17 +181,10 @@ int executePipe(int numCmds, cmdStruct* cStructs){
 		pipe(fd);
 		ret = forkChild(in, fd[1], cStructs[i]);
 		close(fd[1]);
-		if(ret = -1)
-			return ret;
 		in = fd[0];
 	}
-	if (in != 0){
-		close(STDIN_FILENO);
-		dup(in);
-		close(in);
-	}
-	ret = executeHelper(cStructs[i]);
-	return ret;
+	forkChild(in, 1, cStructs[i]);
+	return 0;
 }
 
 int executeHelper(cmdStruct c){
@@ -184,15 +200,11 @@ int executeHelper(cmdStruct c){
 	else
 		cmdPath = c.cmd;
 	if(cmdPath == NULL){
-		fprintf(stdout, "%s: Command not found.\n", c.cmd);
+		fprintf(stderr, "%s: Command not found.\n", c.cmd);
 		return -1;
 	}
 	buildCmdFromStruct(cmd, count, c, cmdPath);
-	if(c.bg == 1)
-		printf("[Position In Queue <Not implemented>]\t[%d]\n", getpid());
 	execv(cmd[0], cmd);
-	if(c.bg == 1)
-		printf("[Position In Queue <Not implemented>]+\t[%s]\n", c.cmd);
 	return 0;
 }
 
@@ -247,11 +259,12 @@ int forkChild(int inFD, int outFD, cmdStruct c){
 			dup(outFD);
 			close(outFD);
 		}
-		fprintf(stderr, "now executing %s\n", c.cmd);
 		ret = executeHelper(c);
 		exit(1);
 	}
-	return ret;
+	else
+		waitpid(pid, NULL, 0);
+	return 0;
 }
 
 char* getCmdPath(char* cmd) {
@@ -272,8 +285,7 @@ char* getCmdPath(char* cmd) {
 	return "";
 }
 
-void limits(pid_t x)
-{
+void limits(pid_t x) {
         char pid[15];
         snprintf(pid, 10, "%d", (int) x);
         char path[100] = "/proc/";

@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include <dirent.h>
 #include <errno.h>
 #include "exec.h"
 #include "path.h"
@@ -42,8 +41,6 @@ int changeEnvs(char * tokenArray[], int arraySize) {
 	int i = 0;
 	char* asdf;
 	for (i = 0; i < arraySize; i++){
-		if(i > arraySize)
-			break;
 		char* token = tokenArray[i];
 		if(token[0] == '$'){
 			char* env = token + 1;
@@ -52,7 +49,6 @@ int changeEnvs(char * tokenArray[], int arraySize) {
 				strcpy(envVar, getenv(env));
 				token = (char*) realloc (tokenArray[i], strlen(envVar)+1);
 				strcpy(token, envVar);
-				free(envVar);
 			} else { // Signal an error if it does not exist
 				printf("%s: Undefined variable.\n", env);
 				return -1;
@@ -69,13 +65,16 @@ cmdStruct* transformStruct(char* cmdToken){
 	char* token;
 	int argIndex = 0;
 
+	int i;
+
+	temp.cmd = 0;
+	for(i = 0; i < MAX; i++)
+		temp.args[i] = 0;
+	temp.rdFile = 0;
+	temp.rd = -1;
+	temp.bg = -1;
+
 	token = strtok_r(rest, " ", &rest);
-	if((strcmp(token, ">") == 0)
-	|| (strcmp(token, "<") == 0)
-	|| (strcmp(token, "|") == 0)) {
-		fprintf(stdout, "%s: Command not found.\n", token);
-		return NULL;
-	}
 	temp.cmd = (char*) malloc (strlen(token));
 	strcpy(temp.cmd, token);
 
@@ -211,29 +210,37 @@ int main() {
 
 		if(strchr(cmdline, '|') == NULL){
 			cmdStruct* newStruct = transformStruct(cmdline);
-			if(newStruct == NULL)
+			if(newStruct == NULL){
+				cleanCommands(cmdStructs);
 				continue;
+			}
 			else if(strcmp(newStruct->cmd, "exit") == 0){
 				fprintf(stdout, "Exiting Shell....\n");
 				return 0;
 			}
-			if(executeCommand(*newStruct) == -1)
+			if(executeCommand(*newStruct) == -1){
+				cleanCommands(cmdStructs);
 				continue;
+			}
 		}
 		else {
 			cmdStruct* newStruct;
 			while((token = strtok_r(rest, "|", &rest)) != NULL){
 				newStruct = transformStruct(token);
-				if(newStruct == NULL)
+				if(newStruct == NULL){
+					cleanCommands(cmdStructs);
 					continue;
+				}
 				copyStruct(cmdStructs + cmdStructIndex++, newStruct);
 			}
 			if(strcmp(cmdStructs[0].cmd, "exit") == 0){
 				fprintf(stdout, "Exiting Shell....\n");
 				return 0;
 			}
-			if(executePipe(cmdStructIndex, cmdStructs) == -1)
+			if(executePipe(cmdStructIndex, cmdStructs) == -1){
+				cleanCommands(cmdStructs);
 				continue;
+			}
 		}
 		cleanCommands(cmdStructs);
 	}

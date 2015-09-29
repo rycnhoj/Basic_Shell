@@ -1,5 +1,13 @@
-#include <string.h>
-#include <stdio.h>
+/**
+SHELL.C
+
+This file contains the main structure and workflow for the shell.
+
+**/
+
+
+#include <string.h>		// Cstring library
+#include <stdio.h>		// Standard I/O
 #include <stdlib.h>
 #include <sys/types.h>
 #include <errno.h>
@@ -10,14 +18,13 @@
 #define MAX 256
 
 static char* getCmd() {
-	static char cmdLine[1024]; // 
+	static char cmdLine[1024]; //
 
 	// Print Prompt
 	/////////////////////////////////////////////////////
-	
 	char hostname[1024]; 		// hold hostname string
 	hostname[1023] = '\0'; 		// adds Null character to end of string
-	gethostname(hostname, 1023);// 
+	gethostname(hostname, 1023);//
 
 	printf("%s@", getenv("USER")); 	// print user followed by '@'
 	printf("%s:", hostname);		// print hostname followed by ':'

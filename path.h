@@ -18,7 +18,8 @@
 #include <stdlib.h>	// for malloc/realloc
 
 char* to_path(const char*);  // Main function
-static char* main_parse(const char*, char*, char*[], const int); // Handles parsing
+static char* main_parse(const char*, char*, char*[], const int);
+	// Main parsing functionality
 static char* get_parent(const char*);  // Gets parent of passed in absolute path
 static void raise_error(const char*, const char*);  // Raises beyond-root error
 
@@ -94,7 +95,12 @@ char* to_path(const char* path){
  * pArr - array of c-strings that holds each element of the original path
  * pCount - the number of elements in pArr
  */
-char* main_parse(const char* iniPath, char* totPath, char* pArr[25], const int pCount){
+char* main_parse(
+	const char* iniPath,
+	char* totPath,
+	char* pArr[25],
+	const int pCount
+	){
 	int i;
 
 	/* Main parsing loop; branches depending on token */

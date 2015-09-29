@@ -1,3 +1,9 @@
+/** ==============================
+			DEFINE.H
+	Holds the global definition for
+	the command struct in order to
+	span multiple source code files.
+	================================ **/
 #ifndef DEFINE_H
 #define DEFINE_H
 
@@ -7,11 +13,11 @@ typedef struct {
 	char* rdFile;  // String holding the name of the file to redirect to
 
 	int rd;
+		// -1 for not redirected
 		// 0 for '>'
 		// 1 for '<'
-		// Other for other
 	int bg;
-		// 0 for not backgrounded
+		// -1 for not backgrounded
 		// 1 for backgrounded
 } cmdStruct;
 

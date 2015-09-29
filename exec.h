@@ -33,22 +33,28 @@ extern FILE* getInFile(char*);
 char* executeCommand(cmdStruct c){
 	if(!strcmp(c.cmd, "clear"))
 		system("clear");
+
 	else if(!strcmp(c.cmd, "cd")){
 		//cd(c);
-		puts("CD");
+		changeDir(c.args);
 	}
 	else if(!strcmp(c.cmd, "echo")){
-		puts("echo");
-		// NEED TO CHANGE THIS
-		printf("%s", c.args[0]);
+		// puts("echo");
+		int p = 0;
+		while(c.args[p] != NULL) {
+			printf("%s ", c.args[p]);
+			p++;
+		}
+		printf("\n");
+		
 	}
 	else if(!strcmp(c.cmd, "etime")){
 		//etime(c);
-		puts("etime");
+		printf("etime\n");
 	}
 	else if(!strcmp(c.cmd, "limits")){
 		//limits(c);
-		puts("limits");
+		printf("limits\n");
 	}
 	else{
 		int status;

@@ -8,20 +8,35 @@ This file contains the main structure and workflow for the shell.
 
 #include <string.h>		// Cstring library
 #include <stdio.h>		// Standard I/O
-#include <stdlib.h>
-#include <sys/types.h>
-#include <errno.h>
-#include "exec.h"
-#include "path.h"
-#include "define.h"
+#include <stdlib.h>		// getenv(), Malloc, Realloc
+#include <errno.h>		// ENOENT, error handling
+#include "exec.h"		// Execution functions
+#include "path.h"		// Path parsing
+#include "define.h"		// Struct definition
 
+// DEFINITIONS
 #define MAX 256
 
-static char* getCmd() {
-	static char cmdLine[1024]; //
+// FUNCTION PROTOTYPES
+static char* getCmd();
+int changeEnvs(char*[], int);
+cmdStruct* transformStruct(char*);
+static int checkTokenForInvalid(char*);
+static void initializeCommands(cmdStruct*, int);
+static void cleanCommands(cmdStruct*);
+FILE* getOutFile(char*);
+FILE* getInFile(char*);
 
-	// Print Prompt
-	/////////////////////////////////////////////////////
+/**
+GETCMD()
+
+Main function for printing shell prompt and getting
+user inputs.
+**/
+static char* getCmd() {
+	static char cmdLine[1024];
+
+	// Prints prompt
 	char hostname[1024]; 		// hold hostname string
 	hostname[1023] = '\0'; 		// adds Null character to end of string
 	gethostname(hostname, 1023);//
@@ -29,9 +44,6 @@ static char* getCmd() {
 	printf("%s@", getenv("USER")); 	// print user followed by '@'
 	printf("%s:", hostname);		// print hostname followed by ':'
 	printf("%s => ", getenv("PWD"));// print working directory with arrow
-
-	// Read input
-	/////////////////////////////////////////////////////
 
 	// gets input from user and stores in cmdLine or returns NULL
 	if (fgets(cmdLine, sizeof(cmdLine), stdin) == NULL)
@@ -44,6 +56,11 @@ static char* getCmd() {
 	return cmdLine; // returns cmdLine string
 }
 
+/**
+CHANGEENVS()
+Iterates through the array and replaces environment variables
+with their values.
+**/
 int changeEnvs(char * tokenArray[], int arraySize) {
 	int i = 0;
 	char* asdf;
@@ -65,6 +82,13 @@ int changeEnvs(char * tokenArray[], int arraySize) {
 	return 0;
 }
 
+/**
+TRANSFORMSTRUCT
+Transforms a c-string into a command struct following the
+basic format:
+[cmd] [args]
+Also parses redirection and backgrounding.
+**/
 cmdStruct* transformStruct(char* cmdToken){
 	cmdStruct temp;
 	cmdStruct* tempPtr = &temp;
@@ -74,6 +98,7 @@ cmdStruct* transformStruct(char* cmdToken){
 
 	int i;
 
+	// Zero-initializes temp struct
 	temp.cmd = 0;
 	for(i = 0; i < MAX; i++)
 		temp.args[i] = 0;
@@ -81,29 +106,39 @@ cmdStruct* transformStruct(char* cmdToken){
 	temp.rd = -1;
 	temp.bg = -1;
 
+	// Parses the initial token as the command
 	token = strtok_r(rest, " ", &rest);
+	if(checkTokenForInvalid(token) == -1)
+		return NULL;
 	temp.cmd = (char*) malloc (strlen(token));
 	strcpy(temp.cmd, token);
 
+	// Loops and parses the rest of the tokens
 	while((token = strtok_r(rest, " ", &rest)) != NULL){
+		// If redirection is encountered
 		if(strcmp(token, "<") == 0 || strcmp(token, ">") == 0){
 			if(strcmp(token, "<") == 0)
-				temp.rd = 1;
+				temp.rd = 1;	// Set 1 or
 			else if(strcmp(token, ">") == 0)
-				temp.rd = 2;
+				temp.rd = 2;	// Set 2
+			// Grab the next token as the filename
 			token = strtok_r(rest, " ", &rest);
 			if(checkTokenForInvalid(token) == -1)
 				return NULL;
 			temp.rdFile = (char*) malloc (strlen(token));
+			// Place it into the struct
 			strcpy(temp.rdFile, token);
 		}
+		// If the token is &, turn on backgrounding
 		else if(strcmp(token, "&") == 0){
 			temp.bg = 1;
 		}
+		// Otherwise, push the tokens into the arguments array
 		else {
 			temp.args[argIndex] = (char*) malloc(strlen(token));
 			strcpy(temp.args[argIndex++], token);
 		}
+		// Lastly, convert all the environment variables in their places
 		if (changeEnvs(temp.args, argIndex) == -1){
 			return NULL;
 		}
@@ -111,6 +146,11 @@ cmdStruct* transformStruct(char* cmdToken){
 	return tempPtr;
 }
 
+/**
+CHECKTOKENFORINVALID
+
+Checks tokens for characters that signal invalidity.
+**/
 int checkTokenForInvalid(char* token){
 	if(strchr(token, '>') != NULL){
 		fprintf(stderr, "%s: Invalid token found.\n", token);
@@ -124,14 +164,23 @@ int checkTokenForInvalid(char* token){
 		fprintf(stderr, "%s: Invalid token found.\n", token);
 		return -1;
 	}
+	else if(strchr(token, '|') != NULL){
+		fprintf(stderr, "$s: Invalid token found.\n", token);
+		return -1;
+	}
 	else if(token == NULL){
-		fprintf(stderr, "ERROR: No file name found for redirection.\n");
+		fprintf(stderr, "ERROR: No token found.\n");
 		return -1;
 	}
 	else
 		return 0;
 }
 
+/**
+INITIALIZE COMMANDS
+
+Initializes command struct array to NULL or 0.
+**/
 void initializeCommands(cmdStruct* cStruct, int size){
 	int i;
 	int j;
@@ -145,6 +194,11 @@ void initializeCommands(cmdStruct* cStruct, int size){
 	}
 }
 
+/**
+CLEAN COMMANDS
+
+Frees allocated memory and NULLs pointers.
+**/
 void cleanCommands(cmdStruct* cStruct){
 	int i = 0;
 	int j;
@@ -164,6 +218,12 @@ void cleanCommands(cmdStruct* cStruct){
 	}
 }
 
+/**
+GETOUTFILE
+
+Opens the file passed in if it exists,
+Creates it and opens it if it does not.
+**/
 FILE * getOutFile(char * fileName) {
 	FILE * outFile;
 
@@ -178,6 +238,12 @@ FILE * getOutFile(char * fileName) {
 	}
 }
 
+/**
+GETINFILE
+
+Opens the file for reading it if exists,
+return NULL otherwise.
+**/
 FILE * getInFile(char * fileName) {
 
 	FILE * inFile;
@@ -192,20 +258,30 @@ FILE * getInFile(char * fileName) {
 	}
 }
 
-
 int main() {
-	char* cmdline; // The Whole Command Line
+	char* cmdline;
 	int cmdStructIndex;
 
-	// This is the main Loop
-	// getCmd returns string of whole command line
+	// MAIN EXECUTION LOOP
 	while ((cmdline = getCmd()) != NULL) {
-		char* token;
-		char* rest = cmdline;
-		char* tokenArray[MAX];
-		cmdStruct cmdStructs[MAX];
-		cmdStructIndex = 0;
+		// Checks for single '|' or '|' at the beginning or end
+		if(cmdline[0] == '|'){
+			fprintf(stderr, "|: No commands piped.\n");
+			continue;
+		}
+		else if((strchr(cmdline, '|')-cmdline+1) == strlen(cmdline)){
+			fprintf(stderr, "|: No commands piped.\n");
+			continue;
+		}
 
+		char* token;				// Holds cmdline broken up by '|'
+		char* rest = cmdline;		// Holds the not yet parsed cmdline
+		char* tokenArray[MAX];		// Holds the cstring of the commands
+									//   broken up by '|'
+		cmdStruct cmdStructs[MAX];	// Array of all the command structs
+		cmdStructIndex = 0;			// Indexes the cmd struct array
+
+		// Checks that the only & is at the end of the command
 		char* backG = strchr(cmdline, '&');
 		if(backG == NULL) { }
 		else if((backG-cmdline+1) != strlen(cmdline)){
@@ -215,6 +291,7 @@ int main() {
 
 		initializeCommands(cmdStructs, MAX);
 
+		// The case where there are no pipes
 		if(strchr(cmdline, '|') == NULL){
 			cmdStruct* newStruct = transformStruct(cmdline);
 			if(newStruct == NULL){
@@ -230,6 +307,7 @@ int main() {
 				continue;
 			}
 		}
+		// The case where there exists pipes
 		else {
 			cmdStruct* newStruct;
 			while((token = strtok_r(rest, "|", &rest)) != NULL){

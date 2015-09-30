@@ -26,6 +26,8 @@ static void initializeCommands(cmdStruct*, int);
 static void cleanCommands(cmdStruct*);
 FILE* getOutFile(char*);
 FILE* getInFile(char*);
+extern int processQueue[256];
+extern int queueEnd;
 
 /**
 GETCMD()
@@ -299,6 +301,13 @@ int main() {
 				continue;
 			}
 			else if(strcmp(newStruct->cmd, "exit") == 0){
+				for (int i = 0; i < queueEnd; ++i)
+				{
+					if (processQueue[i] != -1)
+					{
+						waitpid(processQueue[i], NULL, 0);
+					}
+				}
 				fprintf(stdout, "Exiting Shell....\n");
 				return 0;
 			}
@@ -319,6 +328,14 @@ int main() {
 				copyStruct(cmdStructs + cmdStructIndex++, newStruct);
 			}
 			if(strcmp(cmdStructs[0].cmd, "exit") == 0){
+				for (int i = 0; i < queueEnd; ++i)
+                                {
+                                        if (processQueue[i] != -1)
+                                        {
+                                                waitpid(processQueue[i], NULL, 0);
+                                        }
+                                }
+
 				fprintf(stdout, "Exiting Shell....\n");
 				return 0;
 			}

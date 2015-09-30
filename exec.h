@@ -38,6 +38,44 @@ extern char* to_path(const char*);
 void limits(pid_t);
 
 int lim;
+int processQueue[256];
+int queueStart = 0;
+int queueEnd = 0;
+
+void queueAdd(int pid)
+{
+	processQueue[queueEnd] = pid;
+	++queueEnd;
+}
+
+int queuePos(int pid)
+{
+	for(int i = 0; i < queueEnd; i++)
+        {
+		if (processQueue[i] != -1)
+		{
+			int status;
+			int x = waitpid(processQueue[i], &status, WNOHANG);		
+			if (x != 0)
+			{
+				processQueue[i] = -1;
+			}
+		}
+        }
+
+	int pos = 0;
+	for(int i = 0; i < queueEnd; i++)
+        {
+                if (processQueue[i] == pid)
+                {
+                        return ++pos;
+                }
+		else if (processQueue[i] != -1)
+		{
+			++pos;
+		}
+        }
+}
 
 int executeCommand(cmdStruct c){
 	int ret = 0;
@@ -167,6 +205,9 @@ int executeCommand(cmdStruct c){
 			int bg = c.bg;
 			if(bg != 1)
 				waitpid(p, &status, 0);
+			else
+				queueAdd(p);
+				printf("[%d]\t[%d]\n", queuePos(p) ,getpid());
 		}
 	}
 	return ret;

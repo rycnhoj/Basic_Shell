@@ -165,7 +165,7 @@ int checkTokenForInvalid(char* token){
 		return -1;
 	}
 	else if(strchr(token, '|') != NULL){
-		fprintf(stderr, "$s: Invalid token found.\n", token);
+		fprintf(stderr, "%s: Invalid token found.\n", token);
 		return -1;
 	}
 	else if(token == NULL){

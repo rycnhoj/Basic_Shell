@@ -42,14 +42,18 @@ int processQueue[256];
 int queueStart = 0;
 int queueEnd = 0;
 
+
+//Adds process id to process queue
 void queueAdd(int pid)
 {
 	processQueue[queueEnd] = pid;
 	++queueEnd;
 }
 
+
 int queuePos(int pid)
 {
+	//Check for finished processes and mark them as -1 in queue
 	for(int i = 0; i < queueEnd; i++)
         {
 		if (processQueue[i] != -1)
@@ -63,6 +67,7 @@ int queuePos(int pid)
 		}
         }
 
+	//Calculate the processes position in queue
 	int pos = 0;
 	for(int i = 0; i < queueEnd; i++)
         {
@@ -77,6 +82,7 @@ int queuePos(int pid)
         }
 }
 
+//Called when a single command is entered
 int executeCommand(cmdStruct c){
 	int ret = 0;
 	if(!strcmp(c.cmd, "clear"))
@@ -124,6 +130,7 @@ int executeCommand(cmdStruct c){
 		fprintf(stdout, "%s\n", buffer);
 		free(buffer);
 	}
+	//Strips etime or limits from command and passes in the rest of the command to this function recursively
 	else if(!strcmp(c.cmd, "etime")){
 		struct timeval befTV, aftTV;
 		time_t s;
@@ -166,6 +173,7 @@ int executeCommand(cmdStruct c){
 		ret = executeCommand(*etimeCmd);
 		lim = 0;
 	}
+	//General command, not built in
 	else{
 		int rdFD = -1;
 		if(c.rd == 1)
@@ -204,15 +212,20 @@ int executeCommand(cmdStruct c){
 				close(rdFD);
 			int bg = c.bg;
 			if(bg != 1)
+			{
 				waitpid(p, &status, 0);
+			}
 			else
+			{
 				queueAdd(p);
 				printf("[%d]\t[%d]\n", queuePos(p) ,getpid());
+			}
 		}
 	}
 	return ret;
 }
 
+//Loops through each command in the pipe and creates a child process for them while redirecting I/O
 int executePipe(int numCmds, cmdStruct* cStructs){
 	int in = 0;
 	int ret;
@@ -226,10 +239,12 @@ int executePipe(int numCmds, cmdStruct* cStructs){
 		close(fd[1]);
 		in = fd[0];
 	}
+	//Output last command's output to stdout
 	forkChild(in, 1, cStructs[i]);
 	return 0;
 }
 
+//General executor for all child processes
 int executeHelper(cmdStruct c){
 	int i = 0;
 	int count = 0;
@@ -246,11 +261,13 @@ int executeHelper(cmdStruct c){
 		fprintf(stderr, "%s: Command not found.\n", c.cmd);
 		return -1;
 	}
+	//rebuilds command
 	buildCmdFromStruct(cmd, count, c, cmdPath);
 	execv(cmd[0], cmd);
 	return 0;
 }
 
+//Copies struct into new struct
 void copyStruct(cmdStruct* dest, cmdStruct* src){
 	free(dest->cmd);
 	dest->cmd = (char*) malloc (sizeof(src->cmd));
@@ -272,6 +289,7 @@ void copyStruct(cmdStruct* dest, cmdStruct* src){
 	dest->bg = src->bg;
 }
 
+
 void buildCmdFromStruct(char* cmd[], int size, cmdStruct c, char* newCmd){
 	cmd[0] = (char*) malloc(strlen(newCmd));
 	strcpy(cmd[0], newCmd);
@@ -288,6 +306,7 @@ void buildCmdFromStruct(char* cmd[], int size, cmdStruct c, char* newCmd){
 		cmd[1] = NULL;
 }
 
+//Hooks up I/O and creates child processes; waits after each process for output
 int forkChild(int inFD, int outFD, cmdStruct c){
 	int ret = 0;
 	pid_t pid = fork();
@@ -310,6 +329,7 @@ int forkChild(int inFD, int outFD, cmdStruct c){
 	return 0;
 }
 
+//Finds commands true path
 char* getCmdPath(char* cmd) {
 	char* getAllPaths = getenv("PATH");
 	char* path;
@@ -328,6 +348,7 @@ char* getCmdPath(char* cmd) {
 	return "";
 }
 
+//Retrieves limits from /proc, parses the lines required, and prints them
 void limits(pid_t x) {
         char pid[15];
         snprintf(pid, 10, "%d", (int) x);

@@ -29,9 +29,8 @@
 
 * Limits outputs the contents of the /proc file, but doesn't print the output of the actual command.
 * Can't print a processes place in queue when it finishes. Only when it is started.
-* $PWD is whack, yo
+* $PWD causes issues
 * grep doesn't work
-
 
 ##### Bonus
 

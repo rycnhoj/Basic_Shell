@@ -1,9 +1,11 @@
 /** ==============================
-			DEFINE.H
-	Holds the global definition for
-	the command struct in order to
-	span multiple source code files.
-	================================ **/
+DEFINE.H
+
+Holds the global definition for
+the command struct in order to
+span multiple source code files.
+
+================================ **/
 	
 #ifndef DEFINE_H
 #define DEFINE_H
